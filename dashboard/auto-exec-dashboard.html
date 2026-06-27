@@ -334,6 +334,8 @@ body {
 
 </div>
 
+<div id="debug-log" style="background:#1a1a2e;color:#0f0;font:12px monospace;padding:8px;border-radius:8px;margin-bottom:12px;white-space:pre-wrap;display:none"></div>
+
 <script>
 mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'strict' });
 let statusChart = null;
@@ -341,27 +343,68 @@ let roleChart = null;
 
 function $(id) { return document.getElementById(id); }
 
+function debug(msg) {
+  const el = $('debug-log');
+  if (el) {
+    el.style.display = 'block';
+    el.textContent += new Date().toLocaleTimeString() + ' ' + msg + '\n';
+  }
+  console.log('[auto-exec-dash]', msg);
+}
+
+function parseResult(result) {
+  debug('parseResult type: ' + typeof result + ' keys: ' + Object.keys(result || {}).join(','));
+  if (!result) { debug('parseResult: null/undefined result'); return ''; }
+  if (result.structuredContent) {
+    debug('parseResult: using structuredContent');
+    return JSON.stringify(result.structuredContent);
+  }
+  if (result.content && Array.isArray(result.content)) {
+    debug('parseResult: content array, ' + result.content.length + ' items');
+    return result.content.map(c => c.text || '').join('\n');
+  }
+  debug('parseResult: fallback to String');
+  return String(result);
+}
+
 async function refresh() {
   document.body.classList.add('refreshing');
+  debug('=== refresh() called ===');
 
   try {
+    // First: list sessions to debug
+    debug('Step 1: listing sessions...');
+    const lsResult = await window.cowork.callMcpTool('mcp__workspace__bash', { command: 'ls /sessions/ 2>/dev/null; echo "---"; find /sessions -maxdepth 4 -name "task_plan.md" -path "*/.plan/*" 2>/dev/null || echo "NOT_FOUND"' });
+    debug('ls result: ' + parseResult(lsResult).substring(0, 200));
+
     // Fetch task_plan.md
-    const planCmd = 'for d in /sessions/*/mnt/projects/.plan/task_plan.md; do [ -f "$d" ] && cat "$d" && break; done 2>/dev/null || echo "NO_FILE"';
+    debug('Step 2: fetching task_plan.md...');
+    const planCmd = 'planfile=$(find /sessions -maxdepth 4 -name "task_plan.md" -path "*/.plan/*" 2>/dev/null | head -1); if [ -n "$planfile" ]; then cat "$planfile"; else echo "NO_FILE"; fi';
     const planResult = await window.cowork.callMcpTool('mcp__workspace__bash', { command: planCmd });
     const planText = parseResult(planResult);
+    debug('planText length: ' + planText.length + ' starts: ' + planText.substring(0, 60).replace(/\n/g, '\\n'));
 
     // Fetch progress.md
-    const progCmd = 'for d in /sessions/*/mnt/projects/.plan/progress.md; do [ -f "$d" ] && cat "$d" && break; done 2>/dev/null || echo "NO_FILE"';
+    debug('Step 3: fetching progress.md...');
+    const progCmd = 'pfile=$(find /sessions -maxdepth 4 -name "progress.md" -path "*/.plan/*" 2>/dev/null | head -1); if [ -n "$pfile" ]; then cat "$pfile"; else echo "NO_FILE"; fi';
     const progResult = await window.cowork.callMcpTool('mcp__workspace__bash', { command: progCmd });
     const progText = parseResult(progResult);
+    debug('progText length: ' + progText.length + ' starts: ' + progText.substring(0, 60).replace(/\n/g, '\\n'));
 
     if (planText.trim() === 'NO_FILE') {
+      debug('No plan file found, showing empty state');
       showEmpty();
     } else {
-      showDashboard(planText, progText);
+      debug('Plan file found, rendering dashboard');
+      try {
+        showDashboard(planText, progText);
+      } catch (renderErr) {
+        debug('RENDER ERROR: ' + renderErr.message + ' stack: ' + (renderErr.stack || '').substring(0, 200));
+        showEmpty();
+      }
     }
   } catch (err) {
-    console.error('Refresh error:', err);
+    debug('FATAL ERROR: ' + err.message + ' | ' + JSON.stringify(err).substring(0, 200));
     showEmpty();
   }
 
