@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto-Exec Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.min.js" integrity="sha384-yQ4mmBBT+vhTAwjFH0toJXNYJ6O4usWnt6EPIdWwrRvx2V/n5lXuDZQwQFeSFydF" crossorigin="anonymous"></script>
+<style>
+:root { color-scheme: light; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: #f8f9fa;
+  color: #1a1a2e;
+  padding: 16px;
+  line-height: 1.5;
+}
+
+/* Header */
+.header { margin-bottom: 20px; }
+.header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a2e;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.header h1 .badge {
+  font-size: 11px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+.header .subtitle {
+  font-size: 13px;
+  color: #666;
+  margin-top: 2px;
+}
+
+/* Cards */
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  border: 1px solid #eee;
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 48px 16px;
+  color: #999;
+}
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+.empty-state h2 { font-size: 18px; color: #666; margin-bottom: 8px; }
+.empty-state p { font-size: 13px; }
+
+/* Progress */
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.progress-header .label { font-size: 14px; font-weight: 500; }
+.progress-header .count { font-size: 13px; color: #666; }
+.progress-bar {
+  height: 8px;
+  background: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.progress-bar .fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50, #66BB6A);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* Summary row */
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.stat-box {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+.stat-box .num { font-size: 24px; font-weight: 700; }
+.stat-box .label { font-size: 11px; color: #666; margin-top: 2px; }
+.stat-box.pending .num { color: #ff9800; }
+.stat-box.completed .num { color: #4CAF50; }
+.stat-box.failed .num { color: #f44336; }
+.stat-box.in_progress .num { color: #2196F3; }
+
+/* Charts row */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.chart-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  border: 1px solid #eee;
+  min-height: 160px;
+}
+.chart-box .chart-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.chart-box canvas { max-height: 140px; }
+
+/* Task table */
+.task-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.task-table th {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 2px solid #eee;
+  color: #666;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+}
+.task-table th:hover { color: #333; }
+.task-table td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; }
+.task-table tr:hover { background: #f8f9fa; }
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.status-badge.pending { background: #fff3e0; color: #e65100; }
+.status-badge.in_progress { background: #e3f2fd; color: #1565c0; }
+.status-badge.completed { background: #e8f5e9; color: #2e7d32; }
+.status-badge.failed { background: #ffebee; color: #c62828; }
+.status-badge.blocked { background: #fce4ec; color: #880e4f; }
+
+.role-badge {
+  display: inline-block;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 22px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
+.role-badge.A { background: #1976d2; }
+.role-badge.B { background: #388e3c; }
+.role-badge.C { background: #e64a19; }
+.role-badge.general { background: #757575; }
+
+.risk-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+}
+.risk-dot.low { background: #4CAF50; }
+.risk-dot.medium { background: #ff9800; }
+.risk-dot.high { background: #f44336; }
+
+/* DAG */
+#dag-container {
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Decision log */
+.decision-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 13px;
+}
+.decision-item:last-child { border-bottom: none; }
+.decision-item .time { color: #999; font-size: 11px; }
+
+.blocked-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fff3e0;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.blocked-item .icon { font-size: 16px; }
+
+/* Info grid */
+.info-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  font-size: 13px;
+}
+.info-grid .key { color: #666; }
+
+/* Refreshing state */
+.refreshing { opacity: 0.5; pointer-events: none; }
+
+@media (max-width: 640px) {
+  .charts-row { grid-template-columns: 1fr; }
+  .summary-row { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⬡ Auto-Exec <span class="badge" id="status-badge">检查中...</span></h1>
+  <div class="subtitle" id="subtitle">执行仪表盘</div>
+</div>
+
+<!-- Empty state (shown when no execution) -->
+<div id="empty-state" class="card empty-state" style="display:none">
+  <div class="icon">⚡</div>
+  <h2>没有正在运行的执行</h2>
+  <p>.plan/ 目录为空。对任何会话说 <code>/auto-exec "目标"</code> 启动自主编排。</p>
+</div>
+
+<!-- Dashboard (shown during execution) -->
+<div id="dashboard" style="display:none">
+
+  <!-- Project info -->
+  <div class="card">
+    <div class="info-grid" id="project-info">
+      <span class="key">项目</span><span id="info-project">-</span>
+      <span class="key">目标</span><span id="info-goal">-</span>
+      <span class="key">创建</span><span id="info-created">-</span>
+      <span class="key">完成率</span><span id="info-rate">-</span>
+    </div>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="summary-row" id="summary-stats"></div>
+
+  <!-- Progress bar -->
+  <div class="card">
+    <div class="progress-header">
+      <span class="label">📊 总体进度</span>
+      <span class="count" id="progress-count">0 / 0</span>
+    </div>
+    <div class="progress-bar">
+      <div class="fill" id="progress-fill" style="width: 0%"></div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-row">
+    <div class="chart-box">
+      <div class="chart-title">任务状态分布</div>
+      <canvas id="statusChart"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">角色分布</div>
+      <canvas id="roleChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Task table -->
+  <div class="card">
+    <div class="card-title">📋 任务清单</div>
+    <div style="overflow-x:auto">
+      <table class="task-table" id="task-table">
+        <thead>
+          <tr>
+            <th data-sort="num">#</th>
+            <th data-sort="task">任务</th>
+            <th data-sort="role">角色</th>
+            <th data-sort="deps">依赖</th>
+            <th data-sort="risk">风险</th>
+            <th data-sort="prd">PRD</th>
+            <th data-sort="test">测试</th>
+            <th data-sort="status">状态</th>
+          </tr>
+        </thead>
+        <tbody id="task-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- DAG -->
+  <div class="card">
+    <div class="card-title">🔗 依赖 DAG</div>
+    <div id="dag-container">
+      <pre class="mermaid" id="dag-mermaid"></pre>
+    </div>
+  </div>
+
+  <!-- Progress log -->
+  <div class="card">
+    <div class="card-title">📝 执行日志</div>
+    <div id="progress-log"></div>
+  </div>
+
+  <!-- Blocked items -->
+  <div class="card" id="blocked-card" style="display:none">
+    <div class="card-title">⛔ 阻塞项（需你确认）</div>
+    <div id="blocked-list"></div>
+  </div>
+
+</div>
+
+<script>
+mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'strict' });
+let statusChart = null;
+let roleChart = null;
+
+function $(id) { return document.getElementById(id); }
+
+async function refresh() {
+  document.body.classList.add('refreshing');
+
+  try {
+    // Fetch task_plan.md
+    const planCmd = 'for d in /sessions/*/mnt/projects/.plan/task_plan.md; do [ -f "$d" ] && cat "$d" && break; done 2>/dev/null || echo "NO_FILE"';
+    const planResult = await window.cowork.callMcpTool('mcp__workspace__bash', { command: planCmd });
+    const planText = parseResult(planResult);
+
+    // Fetch progress.md
+    const progCmd = 'for d in /sessions/*/mnt/projects/.plan/progress.md; do [ -f "$d" ] && cat "$d" && break; done 2>/dev/null || echo "NO_FILE"';
+    const progResult = await window.cowork.callMcpTool('mcp__workspace__bash', { command: progCmd });
+    const progText = parseResult(progResult);
+
+    if (planText.trim() === 'NO_FILE') {
+      showEmpty();
+    } else {
+      showDashboard(planText, progText);
+    }
+  } catch (err) {
+    console.error('Refresh error:', err);
+    showEmpty();
+  }
+
+  document.body.classList.remove('refreshing');
+}
+
+function parseResult(result) {
+  if (!result) return '';
+  // structuredContent may have the text directly
+  if (result.structuredContent) return JSON.stringify(result.structuredContent);
+  // Or content array
+  if (result.content && Array.isArray(result.content)) {
+    return result.content.map(c => c.text || '').join('\n');
+  }
+  return String(result);
+}
+
+function showEmpty() {
+  $('empty-state').style.display = 'block';
+  $('dashboard').style.display = 'none';
+  $('status-badge').textContent = '空闲';
+  $('status-badge').style.background = '#f5f5f5';
+  $('status-badge').style.color = '#999';
+}
+
+function showDashboard(planText, progText) {
+  $('empty-state').style.display = 'none';
+  $('dashboard').style.display = 'block';
+  $('status-badge').textContent = '运行中';
+  $('status-badge').style.background = '#e3f2fd';
+  $('status-badge').style.color = '#1565c0';
+
+  const tasks = parseTasks(planText);
+  const meta = parseMeta(planText);
+  const decisions = parseDecisions(progText);
+  const blocked = parseBlocked(progText);
+  const progressInfo = parseProgressInfo(progText);
+
+  renderInfo(meta, tasks, progressInfo);
+  renderSummary(tasks);
+  renderProgress(tasks);
+  renderCharts(tasks);
+  renderTable(tasks);
+  renderDAG(tasks);
+  renderDecisions(decisions);
+  renderBlocked(blocked);
+}
+
+function parseMeta(text) {
+  const meta = { project: '-', goal: '-', created: '-' };
+  const lines = text.split('\n');
+  for (const line of lines) {
+    const m = line.match(/^# 项目:\s*(.+)$/);
+    if (m) meta.project = m[1].trim();
+    const g = line.match(/^# 目标:\s*(.+)$/);
+    if (g) meta.goal = g[1].trim();
+    const c = line.match(/^# 创建:\s*(.+)$/);
+    if (c) meta.created = c[1].trim();
+  }
+  return meta;
+}
+
+function parseTasks(text) {
+  const tasks = [];
+  const lines = text.split('\n');
+  let inTable = false;
+  let headers = [];
+
+  for (const line of lines) {
+    // Detect table header row
+    if (line.trim().startsWith('|') && line.includes('#')) {
+      const cols = line.split('|').map(c => c.trim()).filter(Boolean);
+      if (cols[0] === '#' || cols[0] === ' #') {
+        inTable = true;
+        headers = cols;
+        continue;
+      }
+    }
+    if (inTable && line.trim().startsWith('|---')) continue;
+    if (inTable && line.trim().startsWith('|')) {
+      const cols = line.split('|').map(c => c.trim()).filter(Boolean);
+      if (cols.length >= 2 && /^\d+$/.test(cols[0])) {
+        tasks.push({
+          num: cols[0],
+          task: cols[1] || '',
+          role: (cols[2] || '').toLowerCase(),
+          deps: cols[3] || '',
+          risk: (cols[4] || '').toLowerCase(),
+          prd: (cols[5] || '').toLowerCase(),
+          test: (cols[6] || '').toLowerCase(),
+          status: (cols[7] || 'pending').toLowerCase()
+        });
+      }
+    }
+  }
+  return tasks;
+}
+
+function parseDecisions(text) {
+  const decisions = [];
+  const lines = text.split('\n');
+  let inSection = false;
+  for (const line of lines) {
+    if (line.match(/^## 决策记录/i)) { inSection = true; continue; }
+    if (line.match(/^## /) && !line.match(/决策记录/)) { inSection = false; }
+    if (inSection && line.trim().startsWith('-')) {
+      decisions.push(line.trim().replace(/^-\s*/, ''));
+    }
+  }
+  return decisions;
+}
+
+function parseBlocked(text) {
+  const blocked = [];
+  const lines = text.split('\n');
+  let inSection = false;
+  for (const line of lines) {
+    if (line.match(/^## 阻塞/i)) { inSection = true; continue; }
+    if (line.match(/^## /) && !line.match(/阻塞/)) { inSection = false; }
+    if (inSection && line.trim().match(/^-\s*\[.?\]/)) {
+      blocked.push(line.trim().replace(/^-\s*\[.?\]\s*/, ''));
+    }
+  }
+  return blocked;
+}
+
+function parseProgressInfo(text) {
+  const info = { current: '', completed: '', total: '', session: '', agents: [] };
+  const lines = text.split('\n');
+  for (const line of lines) {
+    const c = line.match(/^\s*-\s*当前任务:\s*(.+)$/i);
+    if (c) info.current = c[1].trim();
+    const comp = line.match(/^\s*-\s*已完成:\s*(.+)$/i);
+    if (comp) {
+      const parts = comp[1].trim().split('/');
+      info.completed = parts[0];
+      info.total = parts.length > 1 ? parts[1] : '';
+    }
+    const agents = line.match(/^\s*-\s*已派发子 Agent:\s*\[(.+)\]$/i);
+    if (agents) info.agents = agents[1].split(',').map(a => a.trim());
+  }
+  return info;
+}
+
+function renderInfo(meta, tasks, progressInfo) {
+  $('info-project').textContent = meta.project;
+  $('info-goal').textContent = meta.goal;
+  $('info-created').textContent = meta.created;
+  const done = tasks.filter(t => t.status === 'completed').length;
+  const total = tasks.length;
+  $('info-rate').textContent = total > 0 ? Math.round(done / total * 100) + '%' : '-';
+}
+
+function renderSummary(tasks) {
+  const container = $('summary-stats');
+  const total = tasks.length;
+  const done = tasks.filter(t => t.status === 'completed').length;
+  const pend = tasks.filter(t => t.status === 'pending').length;
+  const ip = tasks.filter(t => t.status === 'in_progress').length;
+  const fail = tasks.filter(t => t.status === 'failed').length;
+  const block = tasks.filter(t => t.status === 'blocked').length;
+
+  container.innerHTML = `
+    <div class="stat-box pending"><div class="num">${pend}</div><div class="label">待处理</div></div>
+    <div class="stat-box in_progress"><div class="num">${ip}</div><div class="label">执行中</div></div>
+    <div class="stat-box completed"><div class="num">${done}</div><div class="label">已完成</div></div>
+    <div class="stat-box failed"><div class="num">${fail}</div><div class="label">失败</div></div>
+    <div class="stat-box ${block > 0 ? 'failed' : 'completed'}"><div class="num">${block}</div><div class="label">阻塞</div></div>
+  `;
+}
+
+function renderProgress(tasks) {
+  const done = tasks.filter(t => t.status === 'completed').length;
+  const total = tasks.length;
+  $('progress-count').textContent = `${done} / ${total}`;
+  const pct = total > 0 ? done / total * 100 : 0;
+  $('progress-fill').style.width = `${pct}%`;
+}
+
+function renderCharts(tasks) {
+  // Status distribution
+  const statusCounts = { pending: 0, in_progress: 0, completed: 0, failed: 0, blocked: 0 };
+  tasks.forEach(t => { statusCounts[t.status] = (statusCounts[t.status] || 0) + 1; });
+
+  const statusCtx = $('statusChart').getContext('2d');
+  if (statusChart) statusChart.destroy();
+  statusChart = new Chart(statusCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['待处理', '执行中', '已完成', '失败', '阻塞'],
+      datasets: [{
+        data: [statusCounts.pending, statusCounts.in_progress, statusCounts.completed, statusCounts.failed, statusCounts.blocked],
+        backgroundColor: ['#ff9800', '#2196F3', '#4CAF50', '#f44336', '#9C27B0'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  // Role distribution
+  const roleCounts = {};
+  tasks.forEach(t => {
+    const r = t.role || '?';
+    roleCounts[r] = (roleCounts[r] || 0) + 1;
+  });
+  const roleLabels = Object.keys(roleCounts);
+  const roleColors = { a: '#1976d2', b: '#388e3c', c: '#e64a19', general: '#757575' };
+
+  const roleCtx = $('roleChart').getContext('2d');
+  if (roleChart) roleChart.destroy();
+  roleChart = new Chart(roleCtx, {
+    type: 'doughnut',
+    data: {
+      labels: roleLabels.map(r => r.toUpperCase()),
+      datasets: [{
+        data: roleLabels.map(r => roleCounts[r]),
+        backgroundColor: roleLabels.map(r => roleColors[r.toLowerCase()] || '#999'),
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+function renderTable(tasks) {
+  const body = $('task-body');
+  const statusLabels = {
+    pending: '待处理', in_progress: '执行中', completed: '已完成',
+    failed: '失败', blocked: '阻塞'
+  };
+  body.innerHTML = tasks.map(t => `
+    <tr>
+      <td>${t.num}</td>
+      <td>${escHtml(t.task)}</td>
+      <td><span class="role-badge ${(t.role || 'general').toUpperCase()}">${(t.role || 'G').toUpperCase()}</span></td>
+      <td>${t.deps || '-'}</td>
+      <td><span class="risk-dot ${t.risk}"></span> ${t.risk}</td>
+      <td>${t.prd === 'true' ? '✅' : '—'}</td>
+      <td>${t.test === 'false' ? '—' : '✅'}</td>
+      <td><span class="status-badge ${t.status}">${statusLabels[t.status] || t.status}</span></td>
+    </tr>
+  `).join('');
+}
+
+function renderDAG(tasks) {
+  // Build Mermaid flowchart from dependencies
+  const container = $('dag-mermaid');
+  if (tasks.length === 0) {
+    container.textContent = 'graph TD\n  empty[无任务]';
+    mermaid.run({ nodes: [container] });
+    return;
+  }
+
+  let mermaidCode = 'graph TD\n';
+  // Node definitions with status-based styling
+  const styleMap = {
+    pending: 'fill:#fff3e0,stroke:#ff9800',
+    in_progress: 'fill:#e3f2fd,stroke:#2196F3',
+    completed: 'fill:#e8f5e9,stroke:#4CAF50',
+    failed: 'fill:#ffebee,stroke:#f44336',
+    blocked: 'fill:#fce4ec,stroke:#9C27B0'
+  };
+
+  for (const t of tasks) {
+    const nodeId = `t${t.num}`;
+    const label = escMermaid(`#${t.num} ${t.task.length > 20 ? t.task.slice(0, 20) + '…' : t.task}`);
+    mermaidCode += `  ${nodeId}[${label}]\n`;
+    mermaidCode += `  style ${nodeId} ${styleMap[t.status] || styleMap.pending}\n`;
+
+    // Dependencies
+    if (t.deps && t.deps !== '-') {
+      const deps = t.deps.split(',').map(d => d.trim());
+      for (const dep of deps) {
+        if (/^\d+$/.test(dep)) {
+          mermaidCode += `  t${dep} --> ${nodeId}\n`;
+        }
+      }
+    }
+  }
+
+  container.textContent = mermaidCode;
+  try { mermaid.run({ nodes: [container] }); } catch(e) {
+    container.textContent = 'DAG 渲染失败（可能是任务过多或依赖循环）';
+  }
+}
+
+function renderDecisions(decisions) {
+  const container = $('progress-log');
+  if (decisions.length === 0) {
+    container.innerHTML = '<div style="color:#999;font-size:13px">暂无决策记录</div>';
+    return;
+  }
+  container.innerHTML = decisions.map(d =>
+    `<div class="decision-item">• ${escHtml(d)}</div>`
+  ).join('');
+}
+
+function renderBlocked(blocked) {
+  const card = $('blocked-card');
+  const list = $('blocked-list');
+  if (blocked.length === 0) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+  list.innerHTML = blocked.map(b =>
+    `<div class="blocked-item"><span class="icon">🔴</span> ${escHtml(b)}</div>`
+  ).join('');
+}
+
+function escHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+function escMermaid(s) {
+  return s.replace(/[\[\](){}]/g, '');
+}
+
+// Refresh on load, and honour the header Reload button via a periodic check
+refresh();
+</script>
+</body>
+</html>
