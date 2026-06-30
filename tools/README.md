@@ -9,6 +9,8 @@
 | `hash_anchor.py` | P0-1 | Hash-Anchored Editing — 行级哈希校验编辑，防止过期行编辑 | `python hash_anchor.py <command> <file>` |
 | `init_deep.py` | P0-2 | 层级化 AGENTS.md 自动生成（project → src → subdir） | `python init_deep.py [project]` |
 | `planning_pipeline.py` | P1-1 | Prometheus → Metis → Momus 三阶段规划管线 | `python planning_pipeline.py --goal "..."` |
+| `planning_cli.py` | P0-1 | STATE.md 状态管理 CLI — get/update/patch/add-decision/add-blocker | `python planning_cli.py state get` |
+| `nyquist_check.py` | P0-1 | 上下文窗口校验 — plan token 估算 + budget 检查 | `python nyquist_check.py check <file>` |
 | `notepads.py` | P1-2 | Wisdom Accumulation — 结构化 .plan/notepads/ 系统 | `python notepads.py <command>` |
 | `model_routing.py` | P2 | 多模型路由 — 5 分类关键词评分路由 | `python model_routing.py classify "..."` |
 | `team_mode.py` | P3 | 多 Agent 并行协作框架（4 角色 + ASCII dashboard） | `python team_mode.py init <goal>` |

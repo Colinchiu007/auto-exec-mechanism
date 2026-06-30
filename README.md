@@ -93,4 +93,22 @@ auto-exec-mechanism/
 
 ### 方式 1: 自动触发
 
-所有会话通过 `core-rules.md` 的 
+所有会话通过 `core-rules.md` 的 Intent Gate 自动评估 → 复杂任务自动走 auto-exec。
+
+### 方式 2: 手动启动
+
+```bash
+# 在任何会话中说:
+/auto-exec "<目标描述>"
+```
+
+### 方式 3: 跨会话执行
+
+Auto-Exec 自动创建 scheduled task，每 2-5 分钟轮询一次 `.plan/` 状态目录，直到所有任务完成。
+
+## 前置依赖
+
+- Claude Desktop App with Cowork MCP
+- `.plan/` 目录在 workspace 根目录
+- GitHub PAT for PR 操作
+- ROLE_CARD 文件在 `agent-patch/.cowork/`（可自定义）
